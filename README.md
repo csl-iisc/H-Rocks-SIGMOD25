@@ -83,11 +83,19 @@ H-Rocks can also be compiled in the DEBUG mode using the debug flag. This allows
 make hrocksdb -DENABLE_DEBUG
 ```
 
-### Running H-Rocks 
+### Running H-Rocks
+One can compile and run existing test cases provided in the benchmark folder. 
+Follow the steps below: 
+```bash
+make bin/test_puts
+./bin/test_puts -n <num_keys> -k <key_size> -v <value_size>
+```
+Other tests can be run similarly. 
 
+### H-Rocks source code 
 
 ## Reference
 **[1]** RocksDB [*[Code](https://github.com/facebook/rocksdb)*]
 
-**[2]** pmem-rocksDB [*[Code]([https://github.com/pmem/pmem-rocksdb])*]
+**[2]** pmem-rocksDB [*[Code](https://github.com/pmem/pmem-rocksdb)*]
 
