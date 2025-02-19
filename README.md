@@ -32,13 +32,19 @@ The following are the pre-requisites:
 ### Setting up PMEM [~10 minutes]
 This section explains how to setup your NVDIMM config to be run in app direct mode. This also ensures all the PMEM strips are interleaved to attain maximum bandwidth. 
 1. Install all the dependencies to support PMEM
-`chmod +x dependencies.sh`
-`sudo ./dependencies.sh`
-2. Run the teardown script to tear down any older PMEM configuration. 
-`sudo ./pmem-setup/teardown.bashrc`
-3. Run the preboot script to destroy all the existing namespaces. This script will also reboot the sytsem. 
-`sudo ./pmem-setup/preboot.bashrc`
-4. Run the config-setup script to configure interleaved namespace for PMEM along with app-direct mode. To run the script one has to be root. 
+```bash
+chmod +x dependencies.sh
+sudo ./dependencies.sh
+```
+3. Run the teardown script to tear down any older PMEM configuration. 
+```bash
+sudo ./pmem-setup/teardown.bashrc
+```
+5. Run the preboot script to destroy all the existing namespaces. This script will also reboot the sytsem. 
+```bash
+sudo ./pmem-setup/preboot.bashrc
+```
+6. Run the config-setup script to configure interleaved namespace for PMEM along with app-direct mode. To run the script one has to be root. 
 ```bash
 sudo su 
 ./pmem-setup/config-setup.bashrc
@@ -47,22 +53,35 @@ exit
 
 ### Setting up pmem-rocksdb [~10 minutes]
 1. Git clone pmem-rocksdb.
-`git clone https://github.com/pmem/pmem-rocksdb`
+```bash 
+git clone https://github.com/pmem/pmem-rocksdb
+```
 2. Create the build folder. 
-`cd pmem-rocksdb && mkdir build`
+```bash
+cd pmem-rocksdb && mkdir build
+```
 3. Compile pmem-rocksdb.
-`make ROCKSDB_ON_DCPMM=1 install-static -j`
+```bash
+make ROCKSDB_ON_DCPMM=1 install-static -j
+```
 
 ### Setting up CUDA and Nvidia drivers [~15 minutes]
 CUDA runtime and NVIDIA drivers are necessary for H-Rocks. Follow the steps from *[NVIDIA](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)* for a proper installation setup.
 
 ### Compiling H-Rocks
 1. Git clone H-Rocks within the pmem-rocksdb folder.
-`git clone https://github.com/csl-iisc/H-Rocks-SIGMOD25`
-2. Change the directory to H-Rocks-SIGMOD25.
-`cd H-Rocks-SIGMOD25`
-3. Compile it.
-`make hrocksdb`
+```bash
+git clone https://github.com/csl-iisc/H-Rocks-SIGMOD25
+```
+2. Change the directory to H-Rocks-SIGMOD25 and compile it. 
+```bash
+cd H-Rocks-SIGMOD25/ && make hrocksdb
+```
+The compiled library can be found in H-Rocks-SIGMOD25 as *hrocksdb.a*. 
+H-Rocks can also be compiled in the DEBUG mode using the debug flag. This allows both GCC and CUDA debugging and logging information from H-Rocks. 
+```bash
+make hrocksdb -DENABLE_DEBUG
+```
 
 ### Running H-Rocks 
 
