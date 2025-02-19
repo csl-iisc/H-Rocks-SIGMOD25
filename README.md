@@ -126,6 +126,27 @@ H-Rocks can be fine-tuned with several configuration methods, enabling optimal p
 
 For more details on each API and configuration settings, refer to the comments within the source files located at [src/hrocksdb.h](src/hrocksdb.h) and [src/hrocksdb.cu](src/hrocksdb.cu).
 
+## Setting up docker container
+To install docker on an Ubuntu machine
+```bash
+sudo apt install docker.io
+```
+
+To run experiments within the container, build the container as:
+
+```bash
+docker build . -t sa:v1
+```
+
+The docker container requires access to NVIDIA GPUs and NVIDIA driver. This is enabled by installing NVIDIA container toolkit. Follow the steps from *[NVIDIA](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)* to set it up. We recommend installing via APT.
+
+Then launch the docker container in an interactive as:
+```bash
+docker container run -it --runtime=nvidia --gpus all sa:v1 bash
+```
+
+
+
 ## Reference
 **[1]** RocksDB [*[Code](https://github.com/facebook/rocksdb)*]
 
