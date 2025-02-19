@@ -101,28 +101,28 @@ The H-Rocks source code is organized within the `H-Rocks-SIGMOD25/src` directory
 #### Main API Overview
 
 - **Constructor and Destructor**:
-  - `HRocksDB(Config config);` - Initializes a new instance of H-Rocks with specified configuration.
-  - `~HRocksDB();` - Destroys an instance of H-Rocks, freeing up resources.
+  - `HRocksDB(Config config);` - initializes a new instance of H-Rocks with the specified configuration.
+  - `~HRocksDB();` - destroys an instance of H-Rocks, freeing up resources.
 
 - **Database Operations**:
-  - `void Close();` - Closes the H-Rocks database.
-  - `void HOpen(std::string fileLocation);` - Opens a database at the specified location.
-  - `void Delete(std::string fileLocation);` - Deletes the database at the specified location.
+  - `void Close();` - closes the H-Rocks database.
+  - `void HOpen(std::string fileLocation);` - opens a database at the specified location.
+  - `void Delete(std::string fileLocation);` - deletes the database at the specified location.
 
 - **Key-Value Store Operations**:
-  - `void Put(const std::string& key, const std::string& value);` - Inserts or updates a key-value pair.
-  - `void Delete(const std::string& key);` - Removes a key-value pair by key.
-  - `void Range(const std::string& startKey, const std::string& endKey);` - Retrieves a range of key-value pairs between the specified start and end keys.
-  - `void Merge(const std::string& key);` - Merges a key with its existing value using a predefined merge function.
-  - `void Get(const std::string& key);` - Retrieves the value associated with a specified key.
+  - `void Put(const std::string& key, const std::string& value);` - inserts or updates a key-value pair.
+  - `void Delete(const std::string& key);` - removes a key-value pair by key.
+  - `void Range(const std::string& startKey, const std::string& endKey);` - retrieves a range of key-value pairs between the specified start and end keys.
+  - `void Merge(const std::string& key);` - merges a key with its existing value using a predefined merge function.
+  - `void Get(const std::string& key);` - retrieves the value associated with a specified key.
 
 #### Configuration Methods
 
 H-Rocks can be fine-tuned with several configuration methods, enabling optimal performance tailored to specific hardware and workload requirements:
 
-- `setMemtableSize(uint64_t size);` - Sets the size of the memtable.
-- `setNumMemtables(int num);` - Sets the number of memtables to maintain concurrently.
-- `setBatchSize(uint64_t size);` - Sets the size of the batch for operations to be processed.
+- `setMemtableSize(uint64_t size);` - sets the size of the memtable.
+- `setNumMemtables(int num);` - sets the number of memtables to maintain concurrently.
+- `setBatchSize(uint64_t size);` - sets the batch size for all KVS operations.
 
 For more details on each API and configuration settings, refer to the comments within the source files located at [src/hrocksdb.h](src/hrocksdb.h) and [src/hrocksdb.cu](src/hrocksdb.cu).
 
