@@ -89,10 +89,42 @@ Follow the steps below:
 ```bash
 make bin/test_puts
 ./bin/test_puts -n <num_keys> -k <key_size> -v <value_size>
+make bin/test_gets
+./bin/test_gets -p <num_prefill_keys> -n <num_keys> -k <key_size> -v <value_size>
 ```
 Other tests can be run similarly. 
 
-### H-Rocks source code 
+### H-Rocks Source Code
+
+The H-Rocks source code is organized within the `H-Rocks-SIGMOD25/src` directory. Key files including `hrocksdb.h` and `hrocksdb.cu` define the main APIs of H-Rocks, which are designed to enhance the functionality of the existing RocksDB interfaces by leveraging both CPU and GPU resources.
+
+#### Main API Overview
+
+- **Constructor and Destructor**:
+  - `HRocksDB(Config config);` - Initializes a new instance of H-Rocks with specified configuration.
+  - `~HRocksDB();` - Destroys an instance of H-Rocks, freeing up resources.
+
+- **Database Operations**:
+  - `void Close();` - Closes the H-Rocks database.
+  - `void HOpen(std::string fileLocation);` - Opens a database at the specified location.
+  - `void Delete(std::string fileLocation);` - Deletes the database at the specified location.
+
+- **Key-Value Store Operations**:
+  - `void Put(const std::string& key, const std::string& value);` - Inserts or updates a key-value pair.
+  - `void Delete(const std::string& key);` - Removes a key-value pair by key.
+  - `void Range(const std::string& startKey, const std::string& endKey);` - Retrieves a range of key-value pairs between the specified start and end keys.
+  - `void Merge(const std::string& key);` - Merges a key with its existing value using a predefined merge function.
+  - `void Get(const std::string& key);` - Retrieves the value associated with a specified key.
+
+#### Configuration Methods
+
+H-Rocks can be fine-tuned with several configuration methods, enabling optimal performance tailored to specific hardware and workload requirements:
+
+- `setMemtableSize(uint64_t size);` - Sets the size of the memtable.
+- `setNumMemtables(int num);` - Sets the number of memtables to maintain concurrently.
+- `setBatchSize(uint64_t size);` - Sets the size of the batch for operations to be processed.
+
+For more details on each API and configuration settings, refer to the comments within the source files located at [src/hrocksdb.h](src/hrocksdb.h) and [src/hrocksdb.cu](src/hrocksdb.cu).
 
 ## Reference
 **[1]** RocksDB [*[Code](https://github.com/facebook/rocksdb)*]
