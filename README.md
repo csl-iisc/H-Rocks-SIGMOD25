@@ -37,15 +37,15 @@ This section explains how to setup your NVDIMM config to be run in app direct mo
 chmod +x dependencies.sh
 sudo ./dependencies.sh
 ```
-3. Run the teardown script to tear down any older PMEM configuration. 
+2. Run the teardown script to tear down any older PMEM configuration. 
 ```bash
 sudo ./pmem-setup/teardown.bashrc
 ```
-5. Run the preboot script to destroy all the existing namespaces. This script will also reboot the sytsem. 
+3. Run the preboot script to destroy all the existing namespaces. This script will also reboot the sytsem. 
 ```bash
 sudo ./pmem-setup/preboot.bashrc
 ```
-6. Run the config-setup script to configure interleaved namespace for PMEM along with app-direct mode. To run the script one has to be root. 
+4. Run the config-setup script to configure interleaved namespace for PMEM along with app-direct mode. To run the script one has to be root. 
 ```bash
 sudo su 
 ./pmem-setup/config-setup.bashrc
