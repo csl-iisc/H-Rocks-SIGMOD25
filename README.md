@@ -127,7 +127,8 @@ H-Rocks can be fine-tuned with several configuration methods, enabling optimal p
 
 For more details on each API and configuration settings, refer to the comments within the source files located at [src/hrocksdb.h](src/hrocksdb.h) and [src/hrocksdb.cu](src/hrocksdb.cu).
 
-## Setting up docker container
+## Setting up the docker container
+Alternatively, H-Rocks can be set up within a docker container.
 To install docker on an Ubuntu machine
 ```bash
 sudo apt install docker.io
