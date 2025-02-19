@@ -98,18 +98,18 @@ Other tests can be run similarly.
 
 The H-Rocks source code is organized within the `H-Rocks-SIGMOD25/src` directory. Key files including `hrocksdb.h` and `hrocksdb.cu` define the main APIs of H-Rocks, which are designed to enhance the functionality of the existing RocksDB interfaces by leveraging both CPU and GPU resources.
 
-#### Main API Overview
+#### H-Rocks Main API Overview
 
-- **Constructor and Destructor**:
+- **Constructor and destructor**:
   - `HRocksDB(Config config);` - initializes a new instance of H-Rocks with the specified configuration.
   - `~HRocksDB();` - destroys an instance of H-Rocks, freeing up resources.
 
-- **Database Operations**:
+- **Database operations**:
   - `void Close();` - closes the H-Rocks database.
   - `void HOpen(std::string fileLocation);` - opens a database at the specified location.
   - `void Delete(std::string fileLocation);` - deletes the database at the specified location.
 
-- **Key-Value Store Operations**:
+- **Key-Value store operations**:
   - `void Put(const std::string& key, const std::string& value);` - inserts or updates a key-value pair.
   - `void Delete(const std::string& key);` - removes a key-value pair by key.
   - `void Range(const std::string& startKey, const std::string& endKey);` - retrieves a range of key-value pairs between the specified start and end keys.
