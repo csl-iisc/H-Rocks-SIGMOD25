@@ -20,3 +20,27 @@ void RocksDBOperations::Get(char* key) {
         std::cout << "Key not found" << std::endl;
     }
 }
+
+void RocksDBOperations::Delete(char* key) {
+    debug.print("Delete executed by CPU");
+    db->Delete(WriteOptions(), Slice(key));
+}
+
+void RocksDBOperations::Flush() {
+    debug.print("Flush executed by CPU");
+    db->Flush(FlushOptions());
+}
+
+void RocksDBOperations::Update(char* key, char* value) {
+    debug.print("Update executed by CPU");
+    db->Put(WriteOptions(), Slice(key), Slice(value));
+}
+
+void RocksDBOperations::Range(char* startKey, char* endKey) {
+    debug.print("Range executed by CPU");
+    rocksdb::Iterator* it = db->NewIterator(ReadOptions());
+    for (it->Seek(Slice(startKey)); it->Valid() && it->key().compare(Slice(endKey)) < 0; it->Next()) {
+        std::cout << it->key().ToString() << ": " << it->value().ToString() << std::endl;
+    }
+    delete it;
+}

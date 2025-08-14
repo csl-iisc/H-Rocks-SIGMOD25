@@ -23,5 +23,9 @@ public:
     void Put(char* key, char* value);
     void Get(char* key);
     void Delete(char* key);
+    void Flush();
+    void Update(char* key, char* value);
+    void Range(char* startKey, char* endKey);
+    void Merge(char* key);
     RocksDBOperations(rocksdb::DB* db, Debugger debug, DbTimer* timer);
 }; 

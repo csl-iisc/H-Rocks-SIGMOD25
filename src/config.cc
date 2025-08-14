@@ -24,7 +24,7 @@ void Config::setGrowFactor(int factor) {
 
 void Config::setShrinkFactor(int factor) {
     shrinkFactor = factor;
-}s
+}
 
 int Config::getNumMemtables() {
     return maxMemtables;

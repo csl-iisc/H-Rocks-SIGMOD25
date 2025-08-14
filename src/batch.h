@@ -17,11 +17,17 @@ private:
     BlockCache* blockCache;
     rocksdb::DB* db; 
     std::string fileLocation;
-    DbTimer* timer; 
+    DbTimer* timer;
+    int numMemtablesAcrossBatches; // Total number of memtables across all batches
+    std::unordered_map<int, int>& memtableBatchMap; // Map to track which batch a memtable belongs to
+
 
 public:
     Batch(int batchID, uint64_t batchSize, Config config, GMemtable** activeTable, GMemtable** immutableTables, 
         rocksdb::DB* db, std::string fileLocation, DbTimer* timer); 
+    Batch(int batchID, uint64_t batchSize, Config config, GMemtable** activeTable, GMemtable** immutableTables, 
+        rocksdb::DB* db, std::string fileLocation, DbTimer* timer, int& numMemtablesAcrossBatches, 
+        std::unordered_map<int, int>& memtableBatchMap); 
     ~Batch();
     WriteSubBatch* writeBatch;
     ReadSubBatch* readBatch;

@@ -30,7 +30,7 @@ UpdateSubBatch::UpdateSubBatch(int batchID, uint64_t updateBatchSize, Config con
     // The code is implemented assuming we have only UPDATE and PUT ops s
 }
 
-    // Destructor
+//     // Destructor
 UpdateSubBatch::~UpdateSubBatch() {
     keys.clear();
     opIDArr.clear();

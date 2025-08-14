@@ -160,7 +160,7 @@ void GpuUpdates::sortLargerUpdates(uint64_t* gIndices) {
 
     uint64_t numKeys = (*activeTable)->size; 
     uint32_t keyLength = (*activeTable)->keyLength;
-    char* keys = batch->cKeys;
+    char* keys = batch->keys;
     debug.print("Number of keys: " + std::to_string(numKeys));
 
     thrust::host_vector<unsigned long long int> hKeys(numKeys);

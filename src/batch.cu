@@ -8,9 +8,11 @@
 Batch::Batch(int batchID, uint64_t batchSize, Config config, GMemtable** activeTable, GMemtable** immutableTables, 
         rocksdb::DB* db, std::string fileLocation, DbTimer* timer, int& numMemtablesAcrossBatches, 
         std::unordered_map<int, int>& memtableBatchMap) 
-        : batchID(batchID), totalOperations(0), batchSize(batchSize), config(config), activeTable(activeTable), 
+        : batchID(batchID), batchSize(batchSize), config(config), activeTable(activeTable), 
         immutableTables(immutableTables), db(db), fileLocation(fileLocation), timer(timer), 
-        numMemtablesAcrossBatches(numMemtablesAcrossBatches), memtableBatchMap(memtableBatchMap){
+        numMemtablesAcrossBatches(numMemtablesAcrossBatches), memtableBatchMap(memtableBatchMap) {
+    
+    totalOperations = 0; // Initialize total operations to zero
     allocateMemoryManaged((void**)&activeTable, sizeof(GMemtable*));
     allocateMemoryManaged((void**)&immutableTables, config.getNumMemtables() * sizeof(GMemtable*)); 
     // set the active table and immutable tables to nullptr for now

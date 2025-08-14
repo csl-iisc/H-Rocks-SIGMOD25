@@ -7,6 +7,7 @@
 #include "gmemtable.h"
 #include "db_timer.h"
 #include "rocksdb_ops.h"
+#include <chrono>
 
 class HRocksDB {
 
@@ -23,6 +24,9 @@ public:
     void HOpen(std::string fileLocation); 
     void Delete(std::string fileLocation);
     void executeOnCPU(OperationType type, std::string key, std::string value);
+    uint64_t computeRequestRate(Batch* batch); 
+    void updateBatchSize();
+    void updateBatchSize1();
 
     GMemtable** activeTable; 
     GMemtable** immutableTables; 
@@ -38,5 +42,13 @@ public:
     rocksdb::DB* rdb;
     uint64_t opID;
     std::string fileLocation; 
-    RocksDBOperations* rdbOps; 
+    RocksDBOperations* rdbOps;
+    std::unordered_map<int, int> memtableBatchMap;
+    
+    unsigned int previousRequestRate; 
+    unsigned long long int currentBatchSize; 
+    int numMemtablesAcrossBatches;
+    bool executingOnCPU;
+    std::chrono::high_resolution_clock::time_point lastBatchTimeStamp; // Ensure correct type
+    std::chrono::high_resolution_clock::time_point currentTimeStamp; 
 };

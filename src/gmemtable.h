@@ -12,6 +12,7 @@ struct GMemtable {
     uint64_t size; 
     int memtableID;
     int numImmutableMemtables;
+    char *values; // Only needed for updates 
 
     void freeGMemtable(); 
 };

@@ -74,6 +74,8 @@ class WriteSubBatch {
     WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config, GMemtable **activeTable, GMemtable **immutableTables, 
         rocksdb::DB* db, std::string fileLocation, DbTimer* timer, int& numMemtablesAcrossBatches, 
         std::unordered_map<int, int>& memtableBatchMap); 
+    WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config, GMemtable **activeTable, GMemtable **immutableTables, 
+        rocksdb::DB* db, std::string fileLocation, DbTimer* timer);
     ~WriteSubBatch(); 
     WriteSubBatch();
     void addWriteOperation(std::string key, std::string value, uint64_t opID);   
@@ -220,6 +222,7 @@ class UpdateSubBatch {
     // Constructor
     UpdateSubBatch(int batchID, uint64_t updateBatchSize, Config config, GMemtable** activeTable, GMemtable** immutableTables, 
     BlockCache* cache, WriteSubBatch& WriteBatch, rocksdb::DB* db, std::string fileLocation, DbTimer* timer);
+    UpdateSubBatch(int batchID, uint64_t updateBatchSize, Config config, GMemtable** activeTable, GMemtable** immutableTables);
          
     ~UpdateSubBatch();
     void addUpdateOperation(std::string key, uint64_t opID);

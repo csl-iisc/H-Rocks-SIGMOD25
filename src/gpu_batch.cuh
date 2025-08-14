@@ -47,7 +47,9 @@ struct GpuUpdateBatch {
     uint64_t numWrites; 
     int keyLength; 
     int valueLength; 
-    int batchID;     
+    int batchID;  
+    char* cKeys; // For memory management   
+    unsigned long long int numUpdates; // Number of updates in the batch
 }; 
 
 typedef struct GpuUpdateBatch GpuUpdateBatch;

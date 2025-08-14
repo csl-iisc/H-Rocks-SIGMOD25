@@ -6,9 +6,9 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/options.h>
 #include "gmemtable.h"
-#include "helper.cuh"
 #include "db_timer.h"
 #include "rocksdb_ops.h"
+#include "helper.cuh"
 
 #define CPU_LIMIT 10000
 #define TIME_NOW std::chrono::high_resolution_clock::now()
@@ -27,10 +27,10 @@ HRocksDB::HRocksDB(Config config): config(config) {
     debug.print("Immutable table pointers allocated");
     timer = new DbTimer();
     executingOnCPU = true; 
-    lastBatchTimeStamp = TIME_NOW;
+    lastBatchTimeStamp = std::chrono::high_resolution_clock::now(); 
     previousRequestRate = 0;
-    currentBatchSize = 250000000;
-    // currentBatchSize = 100000; 
+    currentBatchSize = config.batchSize; // Initial batch size set to config.batchSize
+    debug.print("Current batch size initialized to " + std::to_string(currentBatchSize));
     numMemtablesAcrossBatches = 0;
 }
 
@@ -41,23 +41,55 @@ HRocksDB::~HRocksDB() {
     debug.print("HRocksDB object deleted");
 }
 
-void HRocksDB::HOpen(std::string fileLocation) {
+// void HRocksDB::HOpen(std::string fileLocation) {
+//     rocksdb::Options options;
+//     options.IncreaseParallelism(128);
+//     options.compression = rocksdb::CompressionType::kSnappyCompression;
+//     options.create_if_missing = true;
+//     debug.print("Opening RocksDB");
+//     std::string pFileLocation = "/pmem/" + fileLocation;
+//     rocksdb::Status status = rocksdb::DB::Open(options, pFileLocation, &rdb);
+//     debug.print(status.ToString()); 
+//     assert(status.ok());    
+//     debug.print("RocksDB opened successfully");
+    
+//     Batch* batch = new Batch(batchID, config.batchSize, config, activeTable, immutableTables, rdb, fileLocation, timer, numMemtablesAcrossBatches, memtableBatchMap);
+//     debug.print("Batch object is allocated with batchSize " + std::to_string(config.batchSize) + " and batchID " + std::to_string(batchID));
+//     currentBatch = batch;
+//     rdbOps = new RocksDBOperations(rdb, debug, timer); 
+// }
+
+void HRocksDB::HOpen(const std::string fileLocation) {
     rocksdb::Options options;
     options.IncreaseParallelism(128);
-    options.compression = rocksdb::CompressionType::kSnappyCompression;
+    options.OptimizeLevelStyleCompaction();
     options.create_if_missing = true;
-    debug.print("Opening RocksDB");
-    std::string pFileLocation = "/pmem/" + fileLocation;
-    rocksdb::Status status = rocksdb::DB::Open(options, pFileLocation, &rdb);
-    debug.print(status.ToString()); 
-    assert(status.ok());    
+
+    // Use absolute path if caller passed one; otherwise default under /pmem
+    const std::string path =
+        (!fileLocation.empty() && fileLocation.front() == '/')
+            ? fileLocation
+            : (std::string("/pmem/") + fileLocation);
+
+    debug.print("Opening RocksDB at " + path);
+    std::cout << "Opening RocksDB at " << path << std::endl;
+
+    rocksdb::DB* rdb = nullptr;
+
+    rocksdb::Status status = rocksdb::DB::Open(options, path, &rdb);
+    debug.print(status.ToString());
+    assert(status.ok());
     debug.print("RocksDB opened successfully");
-    
-    Batch* batch = new Batch(batchID, config.batchSize, config, activeTable, immutableTables, rdb, fileLocation, timer, numMemtablesAcrossBatches, memtableBatchMap);
-    debug.print("Batch object is allocated with batchSize " + std::to_string(config.batchSize) + " and batchID " + std::to_string(batchID));
-    currentBatch = batch;
-    rdbOps = new RocksDBOperations(rdb, debug, timer); 
+
+    // Pass the same resolved path to downstream components
+    currentBatch = new Batch(
+        batchID, config.batchSize, config,
+        activeTable, immutableTables,
+        rdb, path, timer, numMemtablesAcrossBatches, memtableBatchMap);
+
+    rdbOps = new RocksDBOperations(rdb, debug, timer);
 }
+
 
 void HRocksDB::Put(const std::string& key, const std::string& value) {
     currentTimeStamp = TIME_NOW; 

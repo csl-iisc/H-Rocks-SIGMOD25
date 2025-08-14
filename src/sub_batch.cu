@@ -12,6 +12,7 @@
 #include "cpu_gets.h"
 #include <thread>
 #include "config.h"
+#include "db_timer.h"
 
 #define EXPECTED_KEY_LEN 16
 #define BUFFER_FRACTION 0.5
@@ -135,27 +136,11 @@ void ReadSubBatch::execute() {
 
 UpdateSubBatch::UpdateSubBatch(int batchID, uint64_t updateBatchSize, Config config, GMemtable** activeTable, 
         GMemtable** immutableTables) : batchID(batchID), numUpdates(0), updateBatchSize(updateBatchSize), config(config), 
-        activeTable(activeTable), immutableTables(immutableTables){
+        activeTable(activeTable), immutableTables(immutableTables) {
     keys.reserve(updateBatchSize * EXPECTED_KEY_LEN); 
 }
 
-    // Destructor
-UpdateSubBatch::~UpdateSubBatch() {
-    keys.clear();
-    opIDArr.clear();
-}
 
-    // Methods to add operations can be added here
-void UpdateSubBatch::addUpdateOperation(std::string key, uint64_t opID) {
-    keys.insert(keys.end(), key.begin(), key.end());
-    keyLength = strlen(key.c_str()); 
-    numUpdates++;
-    opIDArr.push_back(opID); 
-}
-
-uint64_t UpdateSubBatch::getNumUpdates() {
-    return numUpdates;
-}
 
 RangeSubBatch::RangeSubBatch(int batchID, uint64_t rangeBatchSize, Config config) : batchID(batchID), numRangeQueries(0), rangeBatchSize(rangeBatchSize), config(config) {
     startKeys.reserve(rangeBatchSize);

@@ -18,19 +18,47 @@
 #define EXPECTED_KEY_LEN 8
 #define BUFFER_FRACTION 0.5
 
-WriteSubBatch::WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config, GMemtable** activeTable, 
-        GMemtable** immutableTables, rocksdb::DB *db, std::string fileLocation, DbTimer* timer) : 
-        batchID(batchID), numWrites(0), writeBatchSize(writeBatchSize), config(config), activeTable(activeTable), 
-        immutableTables(immutableTables), db(db), fileLocation(fileLocation), timer(timer) {
+// WriteSubBatch::WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config, GMemtable** activeTable, 
+//         GMemtable** immutableTables, rocksdb::DB *db, std::string fileLocation, DbTimer* timer) : 
+//         batchID(batchID), numWrites(0), writeBatchSize(writeBatchSize), config(config), activeTable(activeTable), 
+//         immutableTables(immutableTables), db(db), fileLocation(fileLocation), timer(timer) {
+//     keys.reserve(writeBatchSize * EXPECTED_KEY_LEN);
+//     values.reserve(writeBatchSize * EXPECTED_KEY_LEN);
+//     opIDArr.reserve(writeBatchSize);
+//     Debugger debug(DEBUG); 
+//     valuePtrArr = nullptr;
+//     cudaFree(0);
+//     memtableID = 0; 
+//     debug.print("Write sub batch created"); 
+// }
+
+WriteSubBatch::WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config,
+    GMemtable** activeTable, GMemtable** immutableTables,
+    rocksdb::DB* db, std::string fileLocation, DbTimer* timer,
+    int& numMemtablesAcrossBatches,
+    std::unordered_map<int,int>& memtableBatchMap)
+  : batchID(batchID),
+    numWrites(0),
+    writeBatchSize(writeBatchSize),
+    config(config),
+    activeTable(activeTable),
+    immutableTables(immutableTables),
+    db(db),
+    fileLocation(std::move(fileLocation)),
+    timer(timer),
+    numMemtablesAcrossBatches(numMemtablesAcrossBatches),
+    memtableBatchMap(memtableBatchMap),
+    valuePtrArr(nullptr),
+    memtableID(0)
+{
     keys.reserve(writeBatchSize * EXPECTED_KEY_LEN);
     values.reserve(writeBatchSize * EXPECTED_KEY_LEN);
     opIDArr.reserve(writeBatchSize);
-    Debugger debug(DEBUG); 
-    valuePtrArr = nullptr;
+    Debugger debug(DEBUG);
     cudaFree(0);
-    memtableID = 0; 
-    debug.print("Write sub batch created"); 
+    debug.print("Write sub batch created");
 }
+
 
 WriteSubBatch::~WriteSubBatch() {
     keys.clear();

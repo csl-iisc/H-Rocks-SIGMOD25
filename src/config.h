@@ -45,5 +45,5 @@ public:
 
     // Constructor with default values
     Config() : memtableSize(DEFAULT_MEMTABLE_SIZE), maxMemtables(DEFAULT_NUM_MEMTABLES), batchSize(DEFAULT_BATCH_SIZE), blkCacheSize(blkCacheSize),
-               growFactor(GROW_FACTOR), shrink(SHRINK_FACTOR) {}
+               growFactor(GROW_FACTOR), shrinkFactor(SHRINK_FACTOR) {}
 };
