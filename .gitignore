@@ -3,3 +3,4 @@ hrocksdb.a
 benchmarks/build/*
 benchmarks/bin/*
 **log**
+run-scripts/results/*
