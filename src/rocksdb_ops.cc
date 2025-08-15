@@ -4,6 +4,21 @@
 
 RocksDBOperations::RocksDBOperations(rocksdb::DB* db, Debugger debug, DbTimer* timer): db(db), debug(debug), timer(timer) {}
 
+rocksdb::DB* RocksDBOperations::Open(std::string fileLocation) {
+        rocksdb::Options options;
+    options.IncreaseParallelism(128);
+    options.OptimizeLevelStyleCompaction();
+    options.create_if_missing = true;
+
+    rocksdb::DB* rdb = nullptr;
+
+    rocksdb::Status status = rocksdb::DB::Open(options, fileLocation, &rdb);
+    debug.print(status.ToString());
+    assert(status.ok());
+    debug.print("RocksDB opened successfully");
+    return rdb;
+}
+
 void RocksDBOperations::Put(char* key, char* value) {
     debug.print("Put executed by CPU");
     // std::cout << "put executed on CPU\n";

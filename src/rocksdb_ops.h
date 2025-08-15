@@ -20,6 +20,8 @@ class RocksDBOperations {
 
 public:
 
+    RocksDBOperations() : db(nullptr), debug(false), timer(nullptr) {}
+    rocksdb::DB* Open(std::string fileLocation); 
     void Put(char* key, char* value);
     void Get(char* key);
     void Delete(char* key);

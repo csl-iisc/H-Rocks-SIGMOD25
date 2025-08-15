@@ -12,12 +12,6 @@ NVCC := nvcc
 CUDA_ARCH ?= sm_75
 BUILD_TYPE ?= release
 
-EXTRA_PLATFORM_DEFS := -DHAVE_ALIGNED_NEW -DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX \
-  -DOS_LINUX -DROCKSDB_FALLOCATE_PRESENT -DSNAPPY -DGFLAGS=1 -DZLIB -DBZIP2 -DNUMA -DTBB \
-  -DROCKSDB_MALLOC_USABLE_SIZE -DROCKSDB_PTHREAD_ADAPTIVE_MUTEX -DROCKSDB_BACKTRACE \
-  -DROCKSDB_RANGESYNC_PRESENT -DROCKSDB_SCHED_GETCPU_PRESENT -DROCKSDB_AUXV_GETAUXVAL_PRESENT \
-  -DHAVE_SSE42 -DHAVE_PCLMUL -DHAVE_AVX2 -DHAVE_UINT128_EXTENSION -DROCKSDB_SUPPORT_THREAD_LOCAL
-
 # jemalloc (same logic as your snippet)
 ifndef DISABLE_JEMALLOC
   ifdef JEMALLOC
@@ -30,14 +24,13 @@ endif
 
 # ===== Host flags (one -std only; merge RocksDB flags + your extra defs) =====
 HOST_PLATFORM := $(filter-out -std=%,$(PLATFORM_CXXFLAGS)) $(EXTRA_PLATFORM_DEFS)
-CXXFLAGS := -std=c++11 $(HOST_PLATFORM) -DON_DCPMM -fno-rtti -faligned-new -fno-builtin-memcmp -march=native
+CXXFLAGS += -std=c++11 $(HOST_PLATFORM) -DON_DCPMM -fno-rtti -faligned-new -fno-builtin-memcmp -march=native
 
 # ---- Includes: use the SAME headers as the lib ----
 CPPFLAGS := -I. -I$(SRCDIR) -I$(BIN_DIR) -I../include -I/usr/local/cuda/include -I./libgpm/include
 
 # NVCC: pass host flags via -Xcompiler; do not pass PLATFORM_CXXFLAGS directly
 NVCCFLAGS := -std=c++14 -arch=$(CUDA_ARCH) -rdc=true
-# NVCC_XCOMPILER := $(foreach f,$(HOST_PLATFORM),-Xcompiler $(f)) commented this out since it was not used
 NVCC_OMP := -Xcompiler -fopenmp
 
 ifeq ($(BUILD_TYPE),debug)
@@ -104,14 +97,12 @@ $(BIN_DIR)/%.o: $(SRCDIR)/%.cc | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # ================== Special-case (still pass host flags correctly) ==================
-$(BIN_DIR)/hrocksdb.o: $(SRCDIR)/hrocksdb.cu
-	$(NVCC) $(NVCCFLAGS) $(NVCC_XCOMPILER) $(NVCC_OMP) $(CPPFLAGS) -c $< -o $@
 
 $(BIN_DIR)/sst_writer.o: $(SRCDIR)/sst_writer.cu
-	$(NVCC) $(NVCCFLAGS) $(NVCC_XCOMPILER) $(NVCC_OMP) $(CPPFLAGS) -c $< -o $@
+	$(NVCC) $(NVCCFLAGS) $(NVCC_XCOMPILER) $(NVCC_OMP) $(CPPFLAGS) $(CXXFFLAGS) -c $< -o $@
 
 $(BIN_DIR)/rocksdb_ops.o: $(SRCDIR)/rocksdb_ops.cc
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS) $(CPPFLAGS) $(CXXFFLAGS) -std=c++11 -c $< -o $@
 
 clean:
 	rm -rf $(BIN_DIR) $(LIB_NAME)

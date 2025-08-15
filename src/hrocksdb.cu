@@ -41,31 +41,8 @@ HRocksDB::~HRocksDB() {
     debug.print("HRocksDB object deleted");
 }
 
-// void HRocksDB::HOpen(std::string fileLocation) {
-//     rocksdb::Options options;
-//     options.IncreaseParallelism(128);
-//     options.compression = rocksdb::CompressionType::kSnappyCompression;
-//     options.create_if_missing = true;
-//     debug.print("Opening RocksDB");
-//     std::string pFileLocation = "/pmem/" + fileLocation;
-//     rocksdb::Status status = rocksdb::DB::Open(options, pFileLocation, &rdb);
-//     debug.print(status.ToString()); 
-//     assert(status.ok());    
-//     debug.print("RocksDB opened successfully");
-    
-//     Batch* batch = new Batch(batchID, config.batchSize, config, activeTable, immutableTables, rdb, fileLocation, timer, numMemtablesAcrossBatches, memtableBatchMap);
-//     debug.print("Batch object is allocated with batchSize " + std::to_string(config.batchSize) + " and batchID " + std::to_string(batchID));
-//     currentBatch = batch;
-//     rdbOps = new RocksDBOperations(rdb, debug, timer); 
-// }
-
 void HRocksDB::HOpen(const std::string fileLocation) {
-    rocksdb::Options options;
-    options.IncreaseParallelism(128);
-    options.OptimizeLevelStyleCompaction();
-    options.create_if_missing = true;
-
-    // Use absolute path if caller passed one; otherwise default under /pmem
+    // Pass the same resolved path to downstream components
     const std::string path =
         (!fileLocation.empty() && fileLocation.front() == '/')
             ? fileLocation
@@ -73,15 +50,9 @@ void HRocksDB::HOpen(const std::string fileLocation) {
 
     debug.print("Opening RocksDB at " + path);
     std::cout << "Opening RocksDB at " << path << std::endl;
+    RocksDBOperations rdbOpsTemp;
+    rdb = rdbOpsTemp.Open(path);
 
-    rocksdb::DB* rdb = nullptr;
-
-    rocksdb::Status status = rocksdb::DB::Open(options, path, &rdb);
-    debug.print(status.ToString());
-    assert(status.ok());
-    debug.print("RocksDB opened successfully");
-
-    // Pass the same resolved path to downstream components
     currentBatch = new Batch(
         batchID, config.batchSize, config,
         activeTable, immutableTables,
@@ -89,7 +60,6 @@ void HRocksDB::HOpen(const std::string fileLocation) {
 
     rdbOps = new RocksDBOperations(rdb, debug, timer);
 }
-
 
 void HRocksDB::Put(const std::string& key, const std::string& value) {
     currentTimeStamp = TIME_NOW; 
@@ -102,6 +72,7 @@ void HRocksDB::Put(const std::string& key, const std::string& value) {
         // timer->stopTimer("CPU_PUT", batchID);
         return;
     }
+
     debug.print("Executing on GPU");
     currentBatch->writeBatch->addWriteOperation(key, value, opID);
     debug.print("Put operation added to the write sub batch Inserting: " + key + " : " + value + " Total operations: " + 
@@ -190,7 +161,6 @@ uint64_t HRocksDB::computeRequestRate(Batch* currentBatch) {
 // TODO: there is an assumption here that the current batch size is never going past the config.batchSize 
 // Add that check and ensure that the ceiling is maintained 
 
-
 void HRocksDB::updateBatchSize() {
     // If request rate is high then exponentially increase the batch size 
     uint64_t currentRequestRate = computeRequestRate(currentBatch);
@@ -264,5 +234,5 @@ void HRocksDB::Delete(std::string fileLocation) {
     // Delete the database directory
     std::string pFileLocation = "/pmem" + fileLocation; 
     std::string command = "rm -rf " + pFileLocation;
-    system(command.c_str());
+    // system(command.c_str());
 }
