@@ -33,7 +33,14 @@ LDLIBS  += $(EXEC_LDFLAGS) \
 
 .PHONY: all clean librocksdb begin
 
-all: librocksdb begin bin/simple_test
+all: librocksdb begin 
+	bin/simple_test_cc \
+	bin/simple_test_cu \
+	bin/test_puts \
+	bin/test_put_gets \
+	bin/test_ycsbA \
+	bin/test_ycsbB \
+	bin/test_ycsbC
 
 librocksdb:
 	$(MAKE) -C ../../ static_lib
@@ -49,6 +56,36 @@ bin/simple_test_cc: simple_test.cc | begin librocksdb
 # ---- CUDA example (links with hrocksdb.a) ----
 bin/simple_test_cu: simple_test.cu | begin librocksdb
 	$(NVCC) $(INCLUDE_PATHS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
+bin/test_puts: test_puts.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
+bin/test_put_gets: test_put_gets.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
+bin/test_ycsbA: test_ycsbA.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
+bin/test_ycsbB: test_ycsbB.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
+bin/test_ycsbC: test_ycsbC.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
 	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
 	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
 	  $(LDFLAGS) $(LDLIBS)

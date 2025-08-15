@@ -10,7 +10,11 @@ enum OperationType {
     PUT,
     GET,
     DELETE,
-    UPDATE
+    UPDATE,
+    RANGE,
+    FLUSH, 
+    OPEN,
+    CLOSE
 };
 
 class RocksDBOperations {

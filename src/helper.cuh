@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <cuda_runtime.h>
 
 void allocateMemoryManaged(void** ptr, size_t size);
 void allocateMemory(void** ptr, size_t size);

@@ -98,8 +98,9 @@ $(BIN_DIR)/%.o: $(SRCDIR)/%.cc | $(BIN_DIR)
 
 # ================== Special-case (still pass host flags correctly) ==================
 
-$(BIN_DIR)/sst_writer.o: $(SRCDIR)/sst_writer.cu
-	$(NVCC) $(NVCCFLAGS) $(NVCC_XCOMPILER) $(NVCC_OMP) $(CPPFLAGS) $(CXXFFLAGS) -c $< -o $@
+$(BIN_DIR)/sst_writer.o: $(SRCDIR)/sst_writer.cc
+	$(CXX) $(CXXFLAGS) $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS) $(CPPFLAGS) $(CXXFFLAGS) -std=c++11 -c $< -o $@
+# 	$(NVCC) $(NVCCFLAGS) $(NVCC_XCOMPILER) $(NVCC_OMP) $(CPPFLAGS) $(CXXFFLAGS) -c $< -o $@
 
 $(BIN_DIR)/rocksdb_ops.o: $(SRCDIR)/rocksdb_ops.cc
 	$(CXX) $(CXXFLAGS) $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS) $(CPPFLAGS) $(CXXFFLAGS) -std=c++11 -c $< -o $@
