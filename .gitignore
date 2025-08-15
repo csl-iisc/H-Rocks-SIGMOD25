@@ -1,4 +1,5 @@
 bin/*
 hrocksdb.a
 benchmarks/build/*
+benchmarks/bin/*
 **log**
