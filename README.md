@@ -1,6 +1,6 @@
 # H-Rocks: CPU-GPU accelerated Heterogeneous RocksDB on Persistent Memory
 
-H-Rocks extends the popular key-value store RocksDB by Meta [1] to leverage both GPU and CPU. 
+H-Rocks extends the popular key-value store RocksDB by Meta [1] to leverage both GPU and CPU.
 H-Rocks significantly improves the throughput of RocksDB.
 This repository provides the source code for H-RocksDB, designed to accelerate a wide range of RocksDB operations by selectively offloading them to the GPU. 
 

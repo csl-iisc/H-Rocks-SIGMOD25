@@ -18,10 +18,10 @@ int main()
     // rocksdb::Status status = rocksdb::DB::Open(options, fileLocation, &rdb);
     // assert(status.ok());    
 
-    hdb->HOpen("/pmem/test/");
+    hdb->HOpen("test");
     hdb->Put("key1", "value1");
     hdb->Put("key2", "value2");
-    hdb->Get("key1");
+    // hdb->Get("key1");
     hdb->Close();
     delete(hdb);
 }
