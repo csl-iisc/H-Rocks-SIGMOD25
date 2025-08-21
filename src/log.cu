@@ -29,18 +29,29 @@ void GMemtableLog::setupLog(std::string folderName, GMemtable* gMemt) {
     opIDSize = sizeof(uint64_t) * numWrites; 
     debug.print("opIDSize: " + std::to_string(opIDSize));
 
-    std::string opIDFileName = folderName + "/opID_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat"; 
+    std::string cleanFolder = folderName;
+    if (cleanFolder.rfind("/pmem/", 0) == 0) {
+        cleanFolder = cleanFolder.substr(6); // drop leading "/pmem"
+    }
+
+    // Ensure trailing slash
+    if (!cleanFolder.empty() && cleanFolder.back() != '/')
+        cleanFolder += '/';
+    std::string opIDFileName = cleanFolder + "/opID_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat"; 
     debug.print("opIDFileName: " + opIDFileName); 
+    std::cout << "opIDFileName: " << opIDFileName << std::endl;
 
     opID = (uint64_t*) gpm_map_file(opIDFileName.c_str(), opIDSize, true);
     
-    std::string valuePtrFileName = folderName + "/valuePtr_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
+    std::string valuePtrFileName = cleanFolder + "/valuePtr_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
     debug.print("Value Log File Name: " + valuePtrFileName);
+    std::cout << "Value Log File Name: " << valuePtrFileName << std::endl;
     
     valuePtrs = (char**) gpm_map_file(valuePtrFileName.c_str(), valuePtrSize, true); 
 
-    std::string keyLogFileName = folderName + "/key_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
+    std::string keyLogFileName = cleanFolder + "/key_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
     debug.print("Key Log File Name: " + keyLogFileName);
+    std::cout << "Key Log File Name: " << keyLogFileName << std::endl;
 
     keys = (char*) gpm_map_file(keyLogFileName.c_str(), keySize, true);
 }  
@@ -48,10 +59,23 @@ void GMemtableLog::setupLog(std::string folderName, GMemtable* gMemt) {
 
 void GMemtableLog::persistValues(std::string folderName, uint64_t batchID, uint64_t numWrites, int valueLength, char* volatileValues) {
 
-    std::string valuePath = folderName + "/values" + std::to_string(batchID) + ".dat";
+    // If folderName accidentally starts with "/pmem/", strip it
+    std::string cleanFolder = folderName;
+    if (cleanFolder.rfind("/pmem/", 0) == 0) {
+        cleanFolder = cleanFolder.substr(6); // drop leading "/pmem"
+    }
+
+    // Ensure trailing slash
+    if (!cleanFolder.empty() && cleanFolder.back() != '/')
+        cleanFolder += '/';
+
+    // Build final path (gpm_map_file will add "/pmem" itself)
+    std::string valuePath = cleanFolder + "values" + std::to_string(batchID) + ".dat";
+
     debug.print("valuePath: " + valuePath); 
     valueSize = numWrites * valueLength; 
     debug.print("valueSize: " + std::to_string(valueSize)); 
+    // values = (char*) gpm_map_file(valuePath.c_str(), valueSize, true);
     values = (char*) gpm_map_file(valuePath.c_str(), valueSize, true);
 
     uint64_t copySizePerThread = valueSize/NUM_TRANSFER_THREADS; 

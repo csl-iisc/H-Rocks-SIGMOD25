@@ -141,7 +141,7 @@ void UpdateSubBatch::gBatchAllocation() {
 
 
 void UpdateSubBatch::execute() {
-    std::cout << "*************EXECUTE IS BEING EXECUTED!****\n";
+    std::cout << "************* EXECUTING THE UPDATE SUB-BATCH ON THE GPU !****\n";
     // Determine the number of memtables needed for supporting the batch size 
     memtableConsumerThread = std::thread(&UpdateSubBatch::convertMemtableToSST, this); // Launch thread with convertMemtableToSST
     // memtableConsumerThread.detach(); 

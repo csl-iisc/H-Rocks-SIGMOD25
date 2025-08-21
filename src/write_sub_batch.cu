@@ -569,7 +569,7 @@ void WriteSubBatch::gWALAllocation() {
 }
 
 void WriteSubBatch::execute() {
-    std::cout << "*************EXECUTE IS BEING EXECUTED!****\n";
+    std::cout << "************* EXECUTING THE WRITE SUB-BATCH ON THE GPU ****\n";
     // Determine the number of memtables needed for supporting the batch size 
     memtableConsumerThread = std::thread(&WriteSubBatch::convertMemtableToSST, this); // Launch thread with convertMemtableToSST
     // memtableConsumerThread.detach(); 
