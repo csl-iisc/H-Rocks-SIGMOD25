@@ -56,7 +56,7 @@ void SstWriter::copyGMemtToCPU(GMemtable *gpuTable, CMemtable *cpuTable) {
 
     copyMemoryAsync(cpuTable->keys, gpuTable->keys, gpuTable->numKeys * gpuTable->keyLength, cudaMemcpyDeviceToHost);
     copyMemoryAsync(cpuTable->valuePointer, gpuTable->valuePointer, gpuTable->numKeys * sizeof(char*), cudaMemcpyDeviceToHost); 
-    copyMemoryAsync(cpuTable->opID, gpuTable->opID, gpuTable->numKeys * sizeof(uint8_t), cudaMemcpyDeviceToHost);
+    copyMemoryAsync(cpuTable->opID, gpuTable->opID, gpuTable->numKeys * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
     debug.print("Copied GMemtable to CPU");
 }

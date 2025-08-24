@@ -37,19 +37,19 @@ void GMemtableLog::setupLog(std::string folderName, GMemtable* gMemt) {
     // Ensure trailing slash
     if (!cleanFolder.empty() && cleanFolder.back() != '/')
         cleanFolder += '/';
-    std::string opIDFileName = cleanFolder + "/opID_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat"; 
+    std::string opIDFileName = cleanFolder + "opID_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat"; 
     debug.print("opIDFileName: " + opIDFileName); 
     std::cout << "opIDFileName: " << opIDFileName << std::endl;
 
     opID = (uint64_t*) gpm_map_file(opIDFileName.c_str(), opIDSize, true);
     
-    std::string valuePtrFileName = cleanFolder + "/valuePtr_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
+    std::string valuePtrFileName = cleanFolder + "valuePtr_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
     debug.print("Value Log File Name: " + valuePtrFileName);
     std::cout << "Value Log File Name: " << valuePtrFileName << std::endl;
     
     valuePtrs = (char**) gpm_map_file(valuePtrFileName.c_str(), valuePtrSize, true); 
 
-    std::string keyLogFileName = cleanFolder + "/key_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
+    std::string keyLogFileName = cleanFolder + "key_" + std::to_string(batchID) + "_" + std::to_string(memtableID) + ".dat";
     debug.print("Key Log File Name: " + keyLogFileName);
     std::cout << "Key Log File Name: " << keyLogFileName << std::endl;
 

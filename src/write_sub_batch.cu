@@ -51,35 +51,80 @@ WriteSubBatch::WriteSubBatch(int batchID, uint64_t writeBatchSize, Config config
     valuePtrArr(nullptr),
     memtableID(0)
 {
-    keys.reserve(writeBatchSize * EXPECTED_KEY_LEN);
-    values.reserve(writeBatchSize * EXPECTED_KEY_LEN);
-    opIDArr.reserve(writeBatchSize);
+    // keys.reserve(writeBatchSize * EXPECTED_KEY_LEN);
+    // values.reserve(writeBatchSize * EXPECTED_KEY_LEN);
+    // opIDArr.reserve(writeBatchSize);
     Debugger debug(DEBUG);
     cudaFree(0);
     debug.print("Write sub batch created");
 }
 
+// WriteSubBatch::~WriteSubBatch() {
+//     keys.clear();
+//     values.clear();
+//     opIDArr.clear();
+//     keyLength = 0;
+//     valueLength = 0;
+//     numWrites = 0;
+//     writeBatchSize = 0;
+//     batchID = -1;
+//     config = Config();
+//     activeTable = nullptr;
+//     immutableTables = nullptr;
+//     // Debugger debug(DEBUG_MODE);
+//     if (valuePtrArr != nullptr) {
+//         cudaFree(valuePtrArr);
+//     }
+//     if (gBatch != nullptr) {
+//         cudaFree(gBatch);
+//     }
+//     debug.print("Write sub batch destroyed");
+// }
 
 WriteSubBatch::~WriteSubBatch() {
+    debug.setDebugMode(DEBUG);
+    debug.print("WriteSubBatch dtor begin");
+
+    // 1) Join all threads so no one still uses our memory
+    if (persistThread.joinable())           persistThread.join();
+    if (memtableProducerThread.joinable())  memtableProducerThread.join();
+    if (memtableConsumerThread.joinable())  memtableConsumerThread.join();
+
+    // 2) Ensure async copies done before unpin/free
+    // cudaDeviceSynchronize();
+
+    // 3) Unpin + free host-pinned staging buffers
+    if (hostPinnedKeys)      { cudaHostUnregister(hostPinnedKeys);      free(hostPinnedKeys);      hostPinnedKeys = nullptr; }
+    if (hostPinnedValuesPtr) { cudaHostUnregister(hostPinnedValuesPtr); free(hostPinnedValuesPtr); hostPinnedValuesPtr = nullptr; }
+    if (hostPinnedOpID)      { cudaHostUnregister(hostPinnedOpID);      free(hostPinnedOpID);      hostPinnedOpID = nullptr; }
+
+    // 4) Free CPU malloc’d value buffers
+    if (valuePtrArr) { free(valuePtrArr); valuePtrArr = nullptr; }
+    if (valueArr)    { free(valueArr);    valueArr    = nullptr; }
+
+    // 5) Free device/UM allocations owned by gBatch, then gBatch itself
+    // if (gBatch) {
+    //     if (gBatch->keys)      { freeMemory(gBatch->keys);      gBatch->keys = nullptr; }
+    //     if (gBatch->valuesPtr) { freeMemory(gBatch->valuesPtr); gBatch->valuesPtr = nullptr; }
+    //     if (gBatch->opID)      { freeMemory(gBatch->opID);      gBatch->opID = nullptr; }
+    //     freeMemory(gBatch);  // allocated via allocateMemoryManaged
+    //     gBatch = nullptr;
+    // }
+    if (gBatch) { freeMemory(gBatch); gBatch = nullptr; }
+    if (gLog)   { delete(gLog);   gLog   = nullptr; }
+    
+    // 6) Clear CPU vectors
     keys.clear();
     values.clear();
     opIDArr.clear();
-    keyLength = 0;
-    valueLength = 0;
-    numWrites = 0;
-    writeBatchSize = 0;
+
+    keyLength = valueLength = 0;
+    numWrites = writeBatchSize = 0;
     batchID = -1;
-    config = Config();
     activeTable = nullptr;
     immutableTables = nullptr;
-    // Debugger debug(DEBUG_MODE);
-    if (valuePtrArr != nullptr) {
-        cudaFree(valuePtrArr);
-    }
-    if (gBatch != nullptr) {
-        cudaFree(gBatch);
-    }
-    debug.print("Write sub batch destroyed");
+
+    debug.print("WriteSubBatch dtor end");
 }
 
 void WriteSubBatch::addWriteOperation(std::string key, std::string value, uint64_t opID) {
@@ -126,13 +171,14 @@ void WriteSubBatch::valueArrConversion() {
 
     debug.print("Value array conversion " + std::to_string(numWrites) + " : " + std::to_string(valueLength) + " : " + valueArr);
 #pragma omp parallel for num_threads(100)
-    for(int i = 0; i < numWrites; i++) {
+    for(int i = 0; i < (int)numWrites; i++) {
         valuePtrArr[i] = valueArr + i * valueLength; 
     }
     timer->stopTimer("valueArrConversion", memtableID);
 
-    GMemtableLog* gLog;
-    allocateMemoryManaged((void**)&gLog, sizeof(gLog)); 
+    GMemtableLog* gLog = nullptr;
+    // allocateMemoryManaged((void**)&gLog, sizeof(GMemtableLog)); 
+    gLog = new GMemtableLog();
     // gLog->persistValues(fileLocation, batchID, numWrites, valueLength, valueArr); // TODO: do this in parallel by launching a separate thread
     persistThread = std::thread(&GMemtableLog::persistValues, gLog, fileLocation, batchID, numWrites, valueLength, valueArr);
     // persistThread.detach(); 
@@ -166,15 +212,14 @@ void WriteSubBatch::pushMemtableToQueue(GMemtable* table) {
 // Call the SST writer class to write the memtable to NVM
 void WriteSubBatch::convertMemtableToSST() {
     std::unique_lock<std::mutex> lock(queueMutex);
-    // Wait until there is an item in the queue
     queueCondVar.wait(lock, [this]{ return !memtableQueue.empty(); });
-    // At this point, we have the lock and there is at least one item in the queue.
     GMemtable* table = memtableQueue.front();
     memtableQueue.pop();
-    lock.unlock(); // Unlock as soon as the critical section is over.
-    // Assuming SstWriter does not need the lock to be held.
-    SstWriter sstWriter(table, db, fileLocation);
+    lock.unlock();
+    SstWriter sstWriter(table, db, fileLocation);  // frees table in its dtor
 }
+
+
 
 
 // Based on the numMemtablesAllocated and leftToAllocate we will decide how many memtables need to be evicted 
@@ -239,7 +284,7 @@ void WriteSubBatch::allocateMultipleMemtablesMoreThanConfig(GpuWriteBatch* gBatc
                 gPuts.sortPutsOnGPU();
                 // SstWriter sstWriter(*activeTable, db, fileLocation); // TODO: move out of the critical path and run in parallel
                 // debug.print("****************SST writer object created");
-                pushMemtableToQueue(immutableTables[i]);
+                ToQueue(immutableTables[i]);
  
                 memtableID++; 
                 numMemtablesAllocated++;
@@ -370,6 +415,8 @@ void WriteSubBatch::allocateMultipleMemtablesMoreThanConfig(GpuWriteBatch* gBatc
             gPuts.sortPutsOnGPU();
             debug.print("Puts sorted on GPU for immutable table " + std::to_string(i));
             pushMemtableToQueue(immutableTables[i]);
+            immutableTables[i] = nullptr; // Set immutable table to null after pushing to queue
+            debug.print("Immutable table " + std::to_string(i) + " pushed to queue");
             timer->stopTimer("sortPuts", memtableID);
             std::cout << "Time taken: " << timer->getTotalTime("sortPuts") << "\n";
 
@@ -403,6 +450,7 @@ void WriteSubBatch::allocateMultipleMemtablesMoreThanConfig(GpuWriteBatch* gBatc
         gPuts.sortPutsOnGPU();
         debug.print("Puts sorted on GPU");
         pushMemtableToQueue(*activeTable);
+        *activeTable = nullptr; // Set active table to null after pushing to queue
         debug.print("Active table pushed to queue");
         timer->stopTimer("sortPuts", memtableID);
         std::cout << "Time taken: " << timer->getTotalTime("sortPuts") << "\n";
@@ -474,6 +522,7 @@ void WriteSubBatch::allocateMultipleMemtablesLessThanConfig(GpuWriteBatch* gBatc
         gPuts.sortPutsOnGPU();
         debug.print("Puts sorted on GPU for immutable table " + std::to_string(i));
         pushMemtableToQueue(immutableTables[i]);
+        immutableTables[i] = nullptr; // Set immutable table to null after pushing to queue
         debug.print("Immutable table " + std::to_string(i) + " pushed to queue");
         timer->stopTimer("sortPuts", memtableID);  
         std::cout << "Time taken: " << timer->getTotalTime("sortPuts") << "\n";
@@ -505,6 +554,7 @@ void WriteSubBatch::allocateMultipleMemtablesLessThanConfig(GpuWriteBatch* gBatc
     gPuts.sortPutsOnGPU();
     debug.print("Puts sorted on GPU");
     pushMemtableToQueue(*activeTable);
+    activeTable = nullptr; // Set active table to null after pushing to queue
     debug.print("Active table pushed to queue");
     timer->stopTimer("sortPuts", memtableID);
 
@@ -530,39 +580,42 @@ void WriteSubBatch::gMemtableAllocation() {
 }
 
 void WriteSubBatch::gBatchAllocation() {
-
     timer->startTimer("gBatchAlloc", batchID);
-    gBatch->cKeys = (char*)malloc(sizeof(char) * numWrites * keyLength); 
-    memcpy(gBatch->cKeys, keys.data(), numWrites * keyLength);
-    cudaHostRegister(gBatch->cKeys, numWrites * keyLength, cudaHostRegisterDefault);
-    char** _valuesPtr = (char**)malloc(sizeof(char*) * numWrites);
-    memcpy(_valuesPtr, valuePtrArr, numWrites * sizeof(char*));
-    cudaHostRegister(_valuesPtr, numWrites * sizeof(char*), cudaHostRegisterDefault);
-    uint64_t* _opID = (uint64_t*)malloc(sizeof(uint64_t) * numWrites);
-    memcpy(_opID, opIDArr.data(), numWrites * sizeof(uint64_t));
-    cudaHostRegister(_opID, numWrites * sizeof(uint64_t), cudaHostRegisterDefault);
+
+    // Host buffers (pinned)
+    hostPinnedKeys = (char*)malloc(sizeof(char) * numWrites * keyLength);
+    memcpy(hostPinnedKeys, keys.data(), numWrites * keyLength);
+    cudaHostRegister(hostPinnedKeys, numWrites * keyLength, cudaHostRegisterDefault);
+
+    hostPinnedValuesPtr = (char**)malloc(sizeof(char*) * numWrites);
+    memcpy(hostPinnedValuesPtr, valuePtrArr, numWrites * sizeof(char*));
+    cudaHostRegister(hostPinnedValuesPtr, numWrites * sizeof(char*), cudaHostRegisterDefault);
+
+    hostPinnedOpID = (uint64_t*)malloc(sizeof(uint64_t) * numWrites);
+    memcpy(hostPinnedOpID, opIDArr.data(), numWrites * sizeof(uint64_t));
+    cudaHostRegister(hostPinnedOpID, numWrites * sizeof(uint64_t), cudaHostRegisterDefault);
 
     debug.print("Size of keys: " + std::to_string(keys.size()));
 
-    allocateMemory((void**)& gBatch->keys, numWrites * keyLength);
+    // Device/UM buffers
+    allocateMemory((void**)& gBatch->keys,      numWrites * keyLength);
     allocateMemory((void**)& gBatch->valuesPtr, numWrites * sizeof(char*));
-    allocateMemory((void**)& gBatch->opID, numWrites * sizeof(uint64_t));
+    allocateMemory((void**)& gBatch->opID,      numWrites * sizeof(uint64_t));
     debug.print("Allocated memory for keys, valuesPtr and opID in GPU Write Batch");
 
-    copyMemoryAsync(gBatch->keys, gBatch->cKeys, numWrites * keyLength, cudaMemcpyHostToDevice); 
-    copyMemoryAsync(gBatch->valuesPtr, _valuesPtr, numWrites * sizeof(char*), cudaMemcpyHostToDevice); // 8 is size of value pointer
-    copyMemoryAsync(gBatch->opID, _opID, numWrites * sizeof(uint64_t), cudaMemcpyHostToDevice); 
-    
-    gBatch->numWrites = numWrites;
-    gBatch->keyLength = keyLength; 
-    gBatch->valueLength = valueLength; 
-    gBatch->batchID = batchID;
+    // H2D copies
+    copyMemoryAsync(gBatch->keys,      hostPinnedKeys,      numWrites * keyLength,          cudaMemcpyHostToDevice);
+    copyMemoryAsync(gBatch->valuesPtr, hostPinnedValuesPtr, numWrites * sizeof(char*),      cudaMemcpyHostToDevice);
+    copyMemoryAsync(gBatch->opID,      hostPinnedOpID,      numWrites * sizeof(uint64_t),   cudaMemcpyHostToDevice);
+
+    gBatch->numWrites   = numWrites;
+    gBatch->keyLength   = keyLength;
+    gBatch->valueLength = valueLength;
+    gBatch->batchID     = batchID;
 
     timer->stopTimer("gBatchAlloc", batchID);
-    //free(_keys);
-    //free(_valuesPtr);
-    //free(_opID);
 }
+
 
 void WriteSubBatch::gWALAllocation() {
     // May move some code here later
@@ -595,5 +648,4 @@ void WriteSubBatch::execute() {
     if (memtableConsumerThread.joinable()) {
         memtableConsumerThread.join(); 
     }
-    
 }

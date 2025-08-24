@@ -19,6 +19,10 @@ void allocateMemory(void** ptr, size_t size) {
 }
 
 void freeMemory(void* ptr) {
+    if (!ptr) {
+        debug.print("Pointer is null, nothing to free.");
+        return;
+    }
     cudaFree(ptr);
     debug.print("Freed memory for pointer: " + std::string(typeid(ptr).name()));
     cudaError_t err = cudaPeekAtLastError(); 

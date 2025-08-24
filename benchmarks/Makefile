@@ -90,5 +90,11 @@ bin/test_ycsbC: test_ycsbC.cu | begin librocksdb
 	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
 	  $(LDFLAGS) $(LDLIBS)
 
+bin/test_req_rate: test_req_rate.cu | begin librocksdb
+	$(NVCC) $(INCLUDE_PATHS) $(NVCCFLAGS) $< -o $@ \
+	  $(HROCKS_LIB) $(ROCKSDB_LIB) \
+	  -L/usr/local/cuda/lib64 -lcuda -lcudart \
+	  $(LDFLAGS) $(LDLIBS)
+
 clean:
 	rm -rf $(BIN_DIR)

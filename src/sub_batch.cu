@@ -34,8 +34,8 @@ ReadSubBatch::~ReadSubBatch() {
     keys.clear(); 
     opIDArr.clear();
     if (sharedBuffer != NULL) {
-    cudaFree(sharedBuffer->notFoundKeysBitMap);
-    cudaFree(sharedBuffer);
+    freeMemory(sharedBuffer->notFoundKeysBitMap);
+    freeMemory(sharedBuffer);
     }
 }
 

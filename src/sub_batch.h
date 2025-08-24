@@ -45,6 +45,11 @@ class WriteSubBatch {
 
     int numMemtablesAcrossBatches;
     std::unordered_map<int, int>& memtableBatchMap;
+    // write_sub_batch.h (or wherever the class is declared)
+    char*     hostPinnedKeys      = nullptr;   // formerly gBatch->cKeys local
+    char**    hostPinnedValuesPtr = nullptr;   // formerly _valuesPtr local
+    uint64_t* hostPinnedOpID      = nullptr;   // formerly _opID  local
+
 
     public: 
     std::vector<char> keys;
@@ -84,6 +89,7 @@ class WriteSubBatch {
     int getKeyLength();
     void execute();
     char** getValues(); 
+
 };
 
 // Shared buffer for keys not found in the GPU memtables and cache. This data is maintained in the CPU memory. 

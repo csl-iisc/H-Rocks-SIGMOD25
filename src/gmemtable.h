@@ -35,3 +35,5 @@ struct CMemtable {
 };
 
 typedef struct CMemtable CMemtable; 
+
+static inline void deleteMemtable(GMemtable*& mt);

@@ -27,23 +27,32 @@ HRocksDB::HRocksDB(Config config): config(config) {
     debug.print("Immutable table pointers allocated");
     timer = new DbTimer();
     executingOnCPU = true; 
-    lastBatchTimeStamp = std::chrono::high_resolution_clock::now(); 
+    lastBatchTimeStamp = TIME_NOW; 
     previousRequestRate = 0;
     currentBatchSize = config.batchSize; // Initial batch size set to config.batchSize
     debug.print("Current batch size initialized to " + std::to_string(currentBatchSize));
     numMemtablesAcrossBatches = 0;
+    currentBatchSize = std::max<uint64_t>(CPU_LIMIT, 1);
+    maxBatchCap      = currentBatchSize;
 }
 
 HRocksDB::~HRocksDB() {
-    delete currentBatch;
-    freeMemory(activeTable);
-    freeMemory(immutableTables);
+    // Make destruction safe even if Close() was already called
+    Close();
+
+    if (rdbOps) { delete rdbOps; rdbOps = nullptr; }
+    if (timer)  { delete timer;  timer  = nullptr; }
+
+    if (activeTable)     { freeMemory(activeTable);     activeTable = nullptr; }
+    if (immutableTables) { freeMemory(immutableTables); immutableTables = nullptr; }
+
     debug.print("HRocksDB object deleted");
 }
 
+
 void HRocksDB::HOpen(const std::string fileLocation) {
     // Pass the same resolved path to downstream components
-    const std::string path =
+    path =
         (!fileLocation.empty() && fileLocation.front() == '/')
             ? fileLocation
             : (std::string("/pmem/") + fileLocation);
@@ -54,7 +63,7 @@ void HRocksDB::HOpen(const std::string fileLocation) {
     rdb = rdbOpsTemp.Open(path);
 
     currentBatch = new Batch(
-        batchID, config.batchSize, config,
+        batchID, currentBatchSize, config,
         activeTable, immutableTables,
         rdb, path, timer, numMemtablesAcrossBatches, memtableBatchMap);
 
@@ -141,92 +150,138 @@ void HRocksDB::executeOnCPU(OperationType type, std::string key, std::string val
         rdbOps->Flush(); 
         opID = 0; 
         executingOnCPU = false; // subsequent operations will execute on the GPU
+        lastBatchTimeStamp = TIME_NOW;
+        previousRequestRate = 0;
     } else {
         return; 
     }
+}
+
+void HRocksDB::updateBatchSizeFromSample(uint64_t ops_in_batch, uint64_t elapsed_us) {
+    if (elapsed_us == 0) elapsed_us = 1;
+    uint64_t rate = (ops_in_batch * 1'000'000ULL) / elapsed_us;  // ops/sec
+
+    // Desired next-batch size so it can fill within targetFillMs (~1s default)
+    uint64_t target_ms   = std::max<uint64_t>(1, 1000);   // e.g., 1000
+    uint64_t desired_ops = std::max<uint64_t>(1, (rate * target_ms) / 1000);  // ops
+
+    // Grow/shrink CAP by trend…
+    if (rate >= previousRequestRate) {
+        // …but don’t stop at one 10× step; keep going until cap covers 'desired_ops'
+        int gf = std::max(1, config.getGrowFactor()); // e.g., 10
+        while (maxBatchCap < desired_ops && maxBatchCap < config.getBatchSize()) {
+            uint64_t next = maxBatchCap > (UINT64_MAX / gf) ? config.getBatchSize()
+                                                            : maxBatchCap * gf; // overflow guard
+            if (next == maxBatchCap) break;
+            maxBatchCap = std::min<uint64_t>(next, config.getBatchSize());
+        }
+    } else {
+        int sf = std::max(1, config.getShrinkFactor()); // e.g., 2
+        maxBatchCap = std::max<uint64_t>(maxBatchCap / sf, 10000); // never below 10k ops
+    }
+
+    // Actual next batch size: limited by both the cap and the desired fill
+    currentBatchSize = std::min<uint64_t>(maxBatchCap, desired_ops);
+
+    std::cout << "[BS policy] rate=" << rate
+              << " prev=" << previousRequestRate
+              << " cap="  << maxBatchCap
+              << " desired=" << desired_ops
+              << " -> next batch size=" << currentBatchSize << std::endl;
+
+    previousRequestRate = rate;
 }
 
 uint64_t HRocksDB::computeRequestRate(Batch* currentBatch) {
-    // uint64_t elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(TIME_NOW - lastBatchTimeStamp).count();
-    // uint64_t requestRate = (currentBatch->getTotalOperations() * 1000) / elapsedTime;
-    uint64_t elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(TIME_NOW - lastBatchTimeStamp).count();
-    uint64_t requestRate = (currentBatch->getTotalOperations() * 1000000) / elapsedTime;  // Adjust factor for microseconds
+    auto now = TIME_NOW;
+    uint64_t elapsed_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - lastBatchTimeStamp).count();
+    if (elapsed_us == 0) elapsed_us = 1; // guard
 
-    debug.print("Request rate is: " + std::to_string(requestRate) + " ops/s");
-    std::cout << "Request rate is: " << requestRate << " ops/s" << std::endl;
-    lastBatchTimeStamp = TIME_NOW; //Update the time stamp 
-    return requestRate;
+    // “Incoming rate” here = ops accumulated in current batch / elapsed time
+    // between rate samples. This gives ops/sec.
+    uint64_t ops = currentBatch->getTotalOperations();
+    uint64_t rate = (ops * 1'000'000ULL) / elapsed_us;
+
+    debug.print("Request rate is: " + std::to_string(rate) + " ops/s");
+    std::cout << "Request rate is: " << rate << " ops/s" << std::endl;
+
+    lastBatchTimeStamp = now; // start window for the next sample
+    return rate;
 }
-
-// TODO: there is an assumption here that the current batch size is never going past the config.batchSize 
-// Add that check and ensure that the ceiling is maintained 
 
 void HRocksDB::updateBatchSize() {
-    // If request rate is high then exponentially increase the batch size 
-    uint64_t currentRequestRate = computeRequestRate(currentBatch);
-    std::cout << "Current request rate: " << currentRequestRate << " Previous request rate: " << previousRequestRate << std::endl;
-    // If request rate is higher than the last request rate then we will increase batch size 
-    if (currentRequestRate > previousRequestRate) {
-        currentBatchSize = (currentRequestRate > 10 * currentBatchSize) ? 10 * currentBatchSize : currentRequestRate;
-    } else if (currentRequestRate < previousRequestRate) {
-        currentBatchSize = (currentRequestRate < 2 * currentBatchSize) ? currentBatchSize / 2 : currentRequestRate; 
+    // 1) Measure
+    currentRequestRate = computeRequestRate(currentBatch);
+
+    // 2) Adjust the CAP based on rate trend
+    if (currentRequestRate >= previousRequestRate) {
+        // steady or increasing → expand by growFactor
+        // avoid overflow and clamp to config.batchSize (MAX cap)
+        if (maxBatchCap <= config.batchSize / std::max(1, config.growFactor))
+            maxBatchCap *= std::max(1, config.growFactor);
+        maxBatchCap = std::min<uint64_t>(maxBatchCap, config.batchSize);
     } else {
-        // request rate is remaining uniform 
-        // check if batchSize == currentRequestRate or not 
-        // if true then do nothing 
-        // else set the batchSize to currentRequestRate?? 
-        // keeping the condition like this so that later we can change the factor if needed
-        // it is possible to increase the currentBatchSize by a factor of 10 until the currentBatchSize == currentRequestRate 
-        // For a uniform request rate this will directly set the batchSize to request rate 
-        currentBatchSize = (currentRequestRate > currentBatchSize) ? currentRequestRate : currentBatchSize;
+        // decreasing → shrink by shrinkFactor
+        maxBatchCap = std::max<uint64_t>(maxBatchCap / std::max(1, config.shrinkFactor),
+                                          CPU_LIMIT);
     }
-    std::cout << "****************** New batch size: " << currentBatchSize << std::endl;
-    previousRequestRate = currentRequestRate; 
+
+    // 3) Actual batch cannot exceed incoming rate per second
+    uint64_t target = std::min<uint64_t>(
+        maxBatchCap,
+        (currentRequestRate == 0 ? 1 : currentRequestRate)
+    );
+
+    currentBatchSize = std::max<uint64_t>(target, 1ULL);
+
+    std::cout << "[BS policy] rate=" << currentRequestRate
+              << " prev=" << previousRequestRate
+              << " cap="  << maxBatchCap
+              << " -> new batch size=" << currentBatchSize << std::endl;
+
+    previousRequestRate = currentRequestRate;
 }
-
-void HRocksDB::updateBatchSize1() {
-// if batch size is less than 250000000 then double the batch size 
-    currentBatchSize = (currentBatchSize < 250000000) ? 10 * currentBatchSize : currentBatchSize;
-}
-
-
-// void HRocksDB::updateBatchSize2() {
-//     // currentBatchSize = 250000000;
-//     // if (currentBatchSize <= 100000000) 
-//     //     currentBatchSize = 10 * currentBatchSize;
-// }
 
 void HRocksDB::batchLimitReached() {
     if (currentBatch->getTotalOperations() >= currentBatchSize) {
-        std::cout << "Batch limit reached: " << currentBatchSize << " batchID: " << batchID <<  std::endl;
-        std::cout << "Number of GETs in the batch: " << currentBatch->readBatch->getNumReads() << std::endl;
-        std::cout << "Number of PUTs in the batch: " <<  currentBatch->writeBatch->getNumWrites() << std::endl;
-        updateBatchSize1(); 
-        debug.print("Batch limit reached");
-        // commit or exit previous batch : can be done in a new thread or process 
-        timer->startTimer("BATCH_COMMIT", batchID);
-        currentBatch->commit(); 
-        timer->stopTimer("BATCH_COMMIT", batchID);
-        delete currentBatch; 
-        debug.print("Batch committed and older batch deleted. Starting a new batch.");
-        std::cout << "Batch committed and older batch deleted. Starting a new batch." << std::endl;
-        // start a new batch 
-        batchID++; 
-        Batch *_batch = new Batch(batchID, config.batchSize, config, activeTable, immutableTables, rdb, fileLocation, timer, 
-        numMemtablesAcrossBatches, memtableBatchMap); 
-        currentBatch = _batch; 
-        debug.print("New batch started");
+      const uint64_t ops_in_batch = currentBatch->getTotalOperations();
+      auto now = TIME_NOW;
+      uint64_t elapsed_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - lastBatchTimeStamp).count();
+      if (elapsed_us == 0) elapsed_us = 1;
+  
+      updateBatchSizeFromSample(ops_in_batch, elapsed_us);
+      lastBatchTimeStamp = now;
+  
+      timer->startTimer("BATCH_COMMIT", batchID);
+      currentBatch->commit();
+      timer->stopTimer("BATCH_COMMIT", batchID);
+      delete currentBatch;
+  
+      // Allocate NEXT batch using the UPDATED size:
+      ++batchID;
+      std::cout << "[BATCH NEW] id=" << batchID
+                << " size=" << currentBatchSize << std::endl;
+  
+      currentBatch = new Batch(
+        batchID, currentBatchSize, config,
+        activeTable, immutableTables, rdb, path, timer,
+        numMemtablesAcrossBatches, memtableBatchMap);
     }
-}
+  }
 
 void HRocksDB::Close() {
-    if (currentBatch->getTotalOperations() == 0) 
-        return; 
-    timer->startTimer("BATCH_COMMIT", batchID);
-    currentBatch->commit();
-    timer->stopTimer("BATCH_COMMIT", batchID);
-    debug.print("Committing the current batch");
-    delete currentBatch; 
+    if (currentBatch) {
+        if (currentBatch->getTotalOperations() > 0) {
+            timer->startTimer("BATCH_COMMIT", batchID);
+            currentBatch->commit();
+            timer->stopTimer("BATCH_COMMIT", batchID);
+            debug.print("Committing the current batch");
+        }
+        delete currentBatch;
+        currentBatch = nullptr;  // <-- critical: prevent double delete
+    }
 }
 
 void HRocksDB::Delete(std::string fileLocation) {
